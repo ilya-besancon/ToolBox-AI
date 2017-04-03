@@ -1,3 +1,8 @@
+"""
+@ilya-besancon
+This program creates a grid and uses an A* algorythm to
+calculate the shortest path between Paul and the cake!
+"""
 import pygame
 # http://www.raywenderlich.com/4946/introduction-to-a-pathfinding
 
@@ -73,8 +78,14 @@ class GridWorld():
 
     def _add_swamp(self, mouse_pos):
         """ Adds a swamp tile in the cell that mouse_pos indicates """
-        # insert swamp code here.
-        pass
+        swamp_coord = (mouse_pos[0]//50, mouse_pos[1]//50)
+        if self._is_occupied(swamp_coord):
+            if self.actors[swamp_coord].removable:
+                self.actors.pop(swamp_coord, None)
+        elif swamp_coord != self.cake.cell_coordinates:
+            swamp = ObstacleTile(swamp_coord, self, './images/swamp.jpg',
+                                 is_unpassable=False, terrain_cost=3)
+            self.actors[swamp_coord] = swamp
 
     def _add_lava(self, mouse_pos):
         """ Adds a lava tile in the cell that mouse_pos indicates """
@@ -108,14 +119,19 @@ class GridWorld():
                 elif event.type is pygame.MOUSEBUTTONDOWN:
                     if self.add_tile_type == 'lava':
                         self._add_lava(event.pos)
-                    # insert swamp code here
+
+                    # swamp:
+                    if self.add_tile_type == 'swamp':
+                        self._add_swamp(event.pos)
                 elif event.type is pygame.KEYDOWN:
                     if event.key == pygame.K_SPACE:
                         self.paul.run_astar(self.cake.cell_coordinates, self)
                         self.paul.get_path()
                     elif event.key == pygame.K_l:
                         self.add_tile_type = 'lava'
-                    # insert swamp code here
+                    # adds swamp if s key is pressed
+                    elif event.key == pygame.K_s:
+                        self.add_tile_type = 'swamp'
 
 
 class Actor(object):
@@ -168,7 +184,7 @@ class Cell():
 
     def draw(self):
         COST_TO_DRAW = ''
-        # COST_TO_DRAW = self.g_cost
+        COST_TO_DRAW = self.g_cost
         # COST_TO_DRAW = self.h_cost
         # COST_TO_DRAW = self.f_cost
         line_width = 2
@@ -197,13 +213,29 @@ class Paul(Actor):
             open, and not in the closed list. """
         # modify directions and costs as needed
         directions = [(1, 0), (0, 1), (-1, 0), (0, -1)]
+        # diagonal directions:
+        diagonal_directions = [(1, -1), (1, 1), (-1, -1), (-1, 1)]
+        # directions in which Paul can hop:
+        hop_directions = [(2, 0), (0, 2), (-2, 0), (0, -2)]
         all_adj = [self.world._add_coords(coords, d) for d in directions]
+        all_diag = [self.world._add_coords(coords, e) for e in diagonal_directions]
+        all_hops = [self.world._add_coords(coords, g) for g in hop_directions]
         in_bounds = [self.is_valid(c) for c in all_adj]
+        in_diag_bounds = [self.is_valid(f) for f in all_diag]
+        in_hop_bounds = [self.is_valid(h) for h in all_hops]
         costs = []
         open_adj = []
         for i, coord in enumerate(all_adj):
             if(in_bounds[i]):
                 costs.append(1 + self.world.get_terrain_cost(coord))
+                open_adj.append(coord)
+        for i2, coord in enumerate(all_diag):
+            if(in_diag_bounds[i2]):
+                costs.append(3 + self.world.get_terrain_cost(coord))
+                open_adj.append(coord)
+        for i3, coord in enumerate(all_hops):
+            if(in_hop_bounds[i3]):
+                costs.append(8 + self.world.get_terrain_cost(coord))
                 open_adj.append(coord)
         return open_adj, costs
 
